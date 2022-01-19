@@ -1,50 +1,103 @@
 const { response, request } = require('express');
+const { validationResult } = require('express-validator');
+const bcryptjs = require('bcryptjs');
+const Usuario = require('../models/usuario');
 
-
-const usuariosGet = (req = request, res = response) => {
+const usuariosGet = async  (req = request, res = response) => {
     // recibe los parametros por query y destructurarlo { se especifica cada cosa que se quiere destructurar}
-    const {q, nombre = 'No Name', apikey, page = 10, limit = 50} = req.query;
+    // const {q, nombre = 'No Name', apikey, page = 10, limit = 50} = req.query;
+    const { limite = 5, desde = 0 } = req.query;
+    const query = { estado: true };
+    
+    // const usuarios = await Usuario.find(query)
+    //     .skip(Number(desde))
+    //     .limit(Number(limite));
+    
+    // const total = await Usuario.countDocuments(query);
 
-
+        // agrupar varios await para que se resuelvan simultaneamente 
+    const [total, usuarios] = await Promise.all([
+        Usuario.countDocuments(query),
+        Usuario.find(query)
+            .skip(Number(desde))
+            .limit(Number(limite)),
+    ])
     res.json({
-        msg: 'get API - controlador',
-        q,
-        nombre,
-        apikey,
-        page, 
-        limit
+              
+        total,
+        usuarios
+        
+        // msg: 'get API - controlador',
+        // q,
+        // nombre,
+        // apikey,
+        // page, 
+        // limit
     });
 }
 
-const usuariosPut = (req, res) => {
+const usuariosPut = async (req, res) => {
 
-    const {id, nombre} = req.params;
+    const { id } = req.params;
+    const { _id, password, google, correo, ...resto } = req.body;
+    
+    if (password) {
+        //encriptar la contraseña
+        const salt = bcryptjs.genSaltSync(); // 10 son el nivel de encriptación a mayor número más dificil y lento de gestionar / desencriptar 
+        resto.password = bcryptjs.hashSync(password, salt);
+    }
+    
+    const usuario = await Usuario.findByIdAndUpdate( id, resto );
 
-    res.status(500).json({
-        msg: 'put API - controlador',
-        id, nombre
-    })
+    res.json(
+        // msg: 'put API - controlador',
+        usuario
+    );
 }
 
-const usuariosPost = (req, res = response) => {
-    // const body = req.body;
+const usuariosPost = async (req, res = response) => {
+
+    // const { google, ...resto } = req.body;
+    const { nombre, correo, password, rol} = req.body;
+    const usuario = new Usuario({nombre, correo, password, rol});
+
+    // Verificar si el correo existe
+ 
+    //Encriptar la contraseña
+
+    const salt = bcryptjs.genSaltSync(10); // 10 son el nivel de encriptación a mayor número más dificil y lento de gestionar / desencriptar 
+    usuario.password = bcryptjs.hashSync( password, salt )
+    // Guardar en BD
+    
+    
+    await usuario.save();
     // Destructurar Body
-    const {nombre, edad, id, apellido} = req.body;
+    // const body = req.body;
 
     
-    res.status(201).json({
-        
-       msg: 'post API - controlador',
-        nombre, edad, id, apellido
-        
+    res.json({
+        usuario
     })
+    // return res.status(200).json({
+    //     usuario
+           
+    // })
     
     
 }
 
-const usuariosDelete = (req, res) => {
+const usuariosDelete = async (req, res = response) => {
+
+    const { id } = req.params;
+
+    // Fisicamente lo borramos
+
+    // const usuario = await Usuario.findByIdAndDelete(id);
+    const usuario = await Usuario.findByIdAndUpdate(id, { estado: false });
+
     res.json({
-        msg: 'delete API - controlador'
+        
+        usuario
     })
 }
 
